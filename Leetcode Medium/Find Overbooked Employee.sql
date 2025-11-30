@@ -92,22 +92,25 @@ Emma Brown (employee_id = 5): Week of June 5-11: 2.0 hours (< 20). No meeting-he
 The result table is ordered by meeting_heavy_weeks in descending order, then by employee name in ascending order.*/
 
 -- Write your PostgreSQL query statement below
+/* DATE(meeting_date + ((7 - COALESCE(NULLIF(EXTRACT(DOW FROM meeting_date), 0), 7)) * INTERVAL '1 day')) this part
+   in the query converts all meeting_date to its end of the week date,for example 2023-06-19 was Monday and end of the
+   week day would be 2023-06-25, this would help to group by the employee's week hours*/
+
 SELECT a.employee_id,
        b.employee_name,
        b.department,
-       COUNT(1) AS meeting_heavy_weeks
+       COUNT(DISTINCT CASE WHEN total_hours > 20 THEN eow_date END) AS meeting_heavy_weeks
 FROM
     (SELECT employee_id,
+           DATE(meeting_date + ((7 - COALESCE(NULLIF(EXTRACT(DOW FROM meeting_date), 0), 7)) * INTERVAL '1 day')) AS eow_date,
            SUM(duration_hours) AS total_hours
     FROM meetings
     GROUP BY employee_id,
-             DATE_PART('week', meeting_date),
-             DATE_PART('year', meeting_date)) a
+           DATE(meeting_date + ((7 - COALESCE(NULLIF(EXTRACT(DOW FROM meeting_date), 0), 7)) * INTERVAL '1 day'))) a
 INNER JOIN employees b
 ON a.employee_id = b.employee_id
-WHERE total_hours > 20
 GROUP BY a.employee_id,
          b.employee_name,
          b.department
-HAVING COUNT(1) >= 2
+HAVING COUNT(DISTINCT CASE WHEN total_hours > 20 THEN eow_date END) >= 2
 ORDER BY meeting_heavy_weeks DESC, b.employee_name ASC;
